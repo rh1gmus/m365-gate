@@ -52,3 +52,13 @@ This project was split out of `rh1gmus/dockerdashboard` (local: /claude/project-
 **Action:** Offline tests (Bash)
 **Detail:** (1) Throwaway consumer dir using `include: ../compose.yaml` with a dummy env file, then `docker compose config`. (2) Same with GATE_UPSTREAM removed. (3) render_config.py with 5 input sets. (4) `bash -n` on the az script. (5) YAML parse of the workflow. (6) `docker pull traefik/whoami:v1.10.3`.
 **Result:** (1) Merge OK: app on gate_backend only; gate-caddy publishes 0.0.0.0:8443; gate_backend internal=true; build context and Caddyfile bind resolve to the module dir. **Bug found:** `ACME_EMAIL=   # comment` was read as the value "# empty with comment". Fixed by rewriting .env.example with comments on their own lines; documented in README. (2) Clear error: "required variable GATE_UPSTREAM is missing a value: set GATE_UPSTREAM in .env…". (3) All correct: per-port cookie names, :443 left out of the redirect, wildcard -> email_domains *, groups-only -> email_domains * + allowed_groups, emails+groups -> file + groups, bad input -> 6 specific errors. (4) OK. (5) OK. (6) Tag exists. Untested so far: a live run of the az script (no az CLI or Entra admin session here) and allowed_groups against a real groups claim.
+
+### 2026-11-19T08:12:36Z — message
+**Action:** Timestamp correction (append-only note)
+**Detail:** The "Wrote module files" entry stamped 08:16:00Z used an estimated time. The writes actually finished before the 08:12:14Z test entry. Every later entry takes its time from `date -u` at the moment it is written.
+**Result:** Noted; the earlier entry is left unchanged.
+
+### 2026-11-19T08:12:36Z — process
+**Action:** Committed and pushed the module
+**Detail:** `git commit` (12 files) as rh1gmus; `git push -u origin main`
+**Result:** 4b8daa7 on origin/main. The push includes caddy/Dockerfile and the workflow, which should trigger the caddy-image Actions run. I can't see that run from the VM (no gh CLI or API token), so the user will need to check the Actions tab.
