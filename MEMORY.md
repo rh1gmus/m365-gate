@@ -62,3 +62,23 @@ This project was split out of `rh1gmus/dockerdashboard` (local: /claude/project-
 **Action:** Committed and pushed the module
 **Detail:** `git commit` (12 files) as rh1gmus; `git push -u origin main`
 **Result:** 4b8daa7 on origin/main. The push includes caddy/Dockerfile and the workflow, which should trigger the caddy-image Actions run. I can't see that run from the VM (no gh CLI or API token), so the user will need to check the Actions tab.
+
+### 2026-11-19T08:13:02Z — process
+**Action:** Migrated dockerdash onto m365-gate (cutover)
+**Detail:** Tagged the existing local build dockerdash-caddy:local (Caddy v2.10.2 + dns.providers.cloudflare v0.2.4, checked) as ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4 so Compose would find it locally. In /claude/project-dockerdash: `git submodule add -b main git@github.com:rh1gmus/m365-gate.git m365-gate`; appended GATE_HOST/GATE_PORT=9090/GATE_UPSTREAM to .env (non-secret, nothing else touched); new docker-compose.yml using `include:`; `git rm -r caddy auth`; `docker compose config -q` OK. Removed the old containers (dockerdash-caddy, -oauth2-proxy, -auth-config), then ran `docker compose up -d --build --remove-orphans`.
+**Result:** **Mistake:** `--build` rebuilt every service with a `build:` section, including gate-caddy, so it ignored the local image and started the ~12 min xcaddy compile while the dashboard was down. Found at 08:18:14Z (ps showed xcaddy/go build), stopped the task, and reran with `--no-build`.
+
+### 2026-11-19T08:18:32Z — process
+**Action:** Started the gated stack without building
+**Detail:** `docker compose up -d --no-build --remove-orphans`
+**Result:** dockerdash healthy; gate-config exited 0 ("https://doda.rhigmus.com:9090 -> http://dockerdash:9090 | allow: 1 email(s)"); gate-proxy and gate-caddy up; 9090 published. Dashboard downtime ~5.5 min (08:13:02Z–08:18:3xZ), mostly caused by the --build mistake.
+
+### 2026-11-19T08:19:04Z — tool
+**Action:** Verified the migrated deployment from outside (Bash: openssl, curl, docker exec)
+**Detail:** Same checks as the original deployment, plus isolation checks.
+**Result:** A new cert was issued on the first try (new volume): Let's Encrypt YE2, valid until 2027-02-17, verify=0. / -> 302 to the Entra authorize URL with redirect_uri https://doda.rhigmus.com:9090/oauth2/callback; /api/summary and /healthz -> 302; /oauth2/userinfo -> 401; /ping -> 200. /logout -> sign_out -> Entra logout with post_logout_redirect_uri https://doda.rhigmus.com:9090/. Headers HSTS, nosniff, DENY; cookie name _m365gate_9090_csrf (per-port naming works). Microsoft page ConvergedSignIn, sErrorCode 50058 (normal), no AADSTS. dockerdash has no outbound internet (DNS resolution fails). The host itself can reach the container's internal IP (normal Docker behaviour, not exposed externally).
+
+### 2026-11-19T08:19:47Z — tool
+**Action:** Documented the --build lesson; preparing the v0.1.0 tag
+**Detail:** README: added a warning against bare `up --build` in consumers; quick start now uses `docker compose build app && docker compose up -d`.
+**Result:** Next: commit, tag v0.1.0, push the tag, pin the dockerdash submodule to it.

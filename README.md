@@ -46,7 +46,7 @@ services:
 In `.env`, set `GATE_UPSTREAM=http://app:8080`, i.e. your service name and the port the app listens on inside its container. Then:
 
 ```bash
-docker compose up -d --build
+docker compose build app && docker compose up -d
 ```
 
 Add `m365-gate` to your app's `.dockerignore` if the build context is the project root.
@@ -88,6 +88,8 @@ Give each project its own `GATE_PORT`, or its own `GATE_HOST` on a different por
 Caddy needs a custom build to include the Cloudflare DNS module. Compiling it takes about 12 minutes on a 1 vCPU VM, so `.github/workflows/caddy-image.yml` builds it on GitHub and publishes `ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4`. Compose pulls that image and falls back to building `./caddy` locally if the pull fails.
 
 The package inherits this repo's **private** visibility. To pull it without a login, set the package to public under GitHub → Packages → m365-gate-caddy → Package settings. It contains only the Caddy binary. Or run `docker login ghcr.io` with a token that has `read:packages`.
+
+**Don't use a bare `docker compose up --build`** in a consuming project. It rebuilds every service that has a `build:` section, so it recompiles Caddy even when the image is already present. Build only your app (`docker compose build app`), then run `docker compose up -d`.
 
 To bump versions, change `CADDY_VERSION` / `CF_DNS_VERSION` in `caddy/Dockerfile` and the workflow, and the default tag in `compose.yaml`.
 
