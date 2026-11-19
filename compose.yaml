@@ -1,0 +1,86 @@
+# m365-gate: Microsoft 365 / Entra ID sign-in + HTTPS in front of any HTTP app.
+#
+#   browser --HTTPS :GATE_PORT--> gate-caddy --> gate-proxy (oauth2-proxy) --> GATE_UPSTREAM
+#
+# Use it from a project's docker-compose.yml:
+#
+#   include:
+#     - path: ./m365-gate/compose.yaml
+#       env_file: ./.env
+#   services:
+#     app:
+#       ...
+#       networks: [gate_backend]   # don't publish the app's port
+#
+# Every value comes from the consuming project's .env (see .env.example).
+# Don't share the output of `docker compose config`. It prints the resolved secrets.
+
+services:
+  gate-caddy:
+    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4}
+    build: ./caddy            # fallback when the image can't be pulled (about 12 min on 1 vCPU)
+    restart: unless-stopped
+    ports:
+      - "${GATE_BIND:-0.0.0.0}:${GATE_PORT:-443}:${GATE_PORT:-443}"
+    environment:
+      GATE_HOST: ${GATE_HOST:?set GATE_HOST in .env}
+      GATE_PORT: ${GATE_PORT:-443}
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?set CF_DNS_API_TOKEN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - gate_caddy_data:/data         # certificates; keep this so restarts don't re-issue
+      - gate_caddy_config:/config
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    networks: [gate_edge]
+    depends_on: [gate-proxy]
+
+  gate-config:
+    image: python:3.12-slim
+    restart: "no"
+    command: ["python", "-I", "/render_config.py"]
+    environment:
+      GATE_HOST: ${GATE_HOST:?set GATE_HOST in .env}
+      GATE_PORT: ${GATE_PORT:-443}
+      GATE_UPSTREAM: ${GATE_UPSTREAM:?set GATE_UPSTREAM in .env, e.g. http://app:8080}
+      GATE_SESSION_HOURS: ${GATE_SESSION_HOURS:-12}
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:?set ENTRA_TENANT_ID in .env}
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
+      ALLOWED_GROUPS: ${ALLOWED_GROUPS:-}
+    volumes:
+      - ./config/render_config.py:/render_config.py:ro
+      - gate_config:/config
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  gate-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.12.0
+    restart: unless-stopped
+    command: ["--config=/config/oauth2-proxy.cfg"]
+    environment:
+      OAUTH2_PROXY_CLIENT_ID: ${ENTRA_CLIENT_ID:?set ENTRA_CLIENT_ID in .env}
+      OAUTH2_PROXY_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:?set ENTRA_CLIENT_SECRET in .env}
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:?set OAUTH2_PROXY_COOKIE_SECRET in .env}
+    volumes:
+      - gate_config:/config:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks: [gate_edge, gate_backend]
+    depends_on:
+      gate-config:
+        condition: service_completed_successfully
+
+networks:
+  gate_edge: {}
+  gate_backend:
+    internal: true   # no internet and no host ports; only gate-proxy reaches the app
+
+volumes:
+  gate_caddy_data: {}
+  gate_caddy_config: {}
+  gate_config: {}

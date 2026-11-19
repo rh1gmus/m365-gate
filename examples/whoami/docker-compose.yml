@@ -1,0 +1,15 @@
+# Smallest possible consumer: put a tiny echo server behind m365-gate.
+# It shows the X-Forwarded-Email / -User / -Preferred-Username headers the gate passes to apps.
+#
+#   cd examples/whoami
+#   cp ../../.env.example .env      # set GATE_UPSTREAM=http://whoami:80 and fill in the rest
+#   docker compose up -d
+include:
+  - path: ../../compose.yaml
+    env_file: ./.env
+
+services:
+  whoami:
+    image: traefik/whoami:v1.10.3
+    restart: unless-stopped
+    networks: [gate_backend]
