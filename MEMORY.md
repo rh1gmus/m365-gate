@@ -82,3 +82,13 @@ This project was split out of `rh1gmus/dockerdashboard` (local: /claude/project-
 **Action:** Documented the --build lesson; preparing the v0.1.0 tag
 **Detail:** README: added a warning against bare `up --build` in consumers; quick start now uses `docker compose build app && docker compose up -d`.
 **Result:** Next: commit, tag v0.1.0, push the tag, pin the dockerdash submodule to it.
+
+### 2026-11-19T08:20:27Z — process
+**Action:** Pinned the dockerdash submodule to v0.1.0, secret-scanned both repos, pushed
+**Detail:** dockerdash commit 9007270 "Use m365-gate v0.1.0 for sign-in and HTTPS" (submodule at 66acb1f = v0.1.0). Scan of full history + staged changes in both repos: no .env values, no real GUIDs, .env untracked.
+**Result:** Both repos in sync with GitHub. Open: (1) the user needs to check the caddy-image Actions run and the GHCR package visibility; (2) allowed_groups and register-entra-app.sh are untested live; (3) unused old volumes project-dockerdash_caddy_data/_caddy_config/_auth_config await the user's OK to remove; (4) the local image tagged ghcr.io/...:2.10.2-cloudflare0.2.4 is the earlier local build, not the GHCR artifact.
+
+### 2026-11-19T08:20:27Z — chat
+**Action:** Reported completion to the user
+**Detail:** Summary of the module, migration, verification, the downtime and its cause, and open items.
+**Result:** Awaiting user feedback.
