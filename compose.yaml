@@ -19,9 +19,9 @@ services:
   gate-caddy:
     labels:
       env: test
-    # TODO(pin): add @sha256:<digest> from the caddy-image run summary once CI has built the -r2 tag, then audit it
-    # (README "Updating pins"). Until then this image is NOT pinned. Do not merge this branch before that.
-    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4-r2}
+    # Pinned by digest: the tag is for humans, the digest is what gets pulled. To bump, see README "Updating pins".
+    # -r2 audited 2026-11-20: /usr/bin/caddy sha256 5d9612c6..., no file capability, module hashes match sum.golang.org.
+    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4-r2@sha256:b24041c994cff9cacc6c33b55319f2668473823ae0ac2a96e0d6ab665b315527}
     build: ./caddy            # fallback when the image can't be pulled (about 12 min on 1 vCPU)
     restart: unless-stopped
     # Non-root, no capabilities. The image's binary has no file capability (see caddy/Dockerfile), and port <1024
@@ -56,7 +56,7 @@ services:
   gate-caddy-perms:
     labels:
       env: test
-    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4-r2}
+    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4-r2@sha256:b24041c994cff9cacc6c33b55319f2668473823ae0ac2a96e0d6ab665b315527}
     restart: "no"
     user: "0:0"
     command:
