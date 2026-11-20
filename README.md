@@ -85,7 +85,7 @@ Give each project its own `GATE_PORT`, or its own `GATE_HOST` on a different por
 
 ## The Caddy image
 
-Caddy needs a custom build to include the Cloudflare DNS module. Compiling it takes about 12 minutes on a 1 vCPU VM, so `.github/workflows/caddy-image.yml` builds it on GitHub and publishes `ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4`. Compose pulls that image and falls back to building `./caddy` locally if the pull fails.
+Caddy needs a custom build to include the Cloudflare DNS module. Compiling it takes about 12 minutes on a 1 vCPU VM, so `.github/workflows/caddy-image.yml` builds it on GitHub and publishes `ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4-r<N>` (`r<N>` is the workflow's `IMAGE_REV`; it goes up when the Dockerfile changes without a version bump, so old digests stay valid). Compose pulls that image and falls back to building `./caddy` locally if the pull fails.
 
 The package inherits this repo's **private** visibility. To pull it without a login, set the package to public under GitHub → Packages → m365-gate-caddy → Package settings. It contains only the Caddy binary. Or run `docker login ghcr.io` with a token that has `read:packages`.
 

@@ -22,6 +22,8 @@ permissions:
 env:
   CADDY_VERSION: "2.10.2"
   CF_DNS_VERSION: "0.2.4"
+  # Bump when the Dockerfile changes without a version bump, so a new tag is published and old digests stay valid.
+  IMAGE_REV: "r2"
   IMAGE: ghcr.io/${{ github.repository_owner }}/m365-gate-caddy
 
 jobs:
@@ -49,11 +51,11 @@ jobs:
             CADDY_VERSION=${{ env.CADDY_VERSION }}
             CF_DNS_VERSION=${{ env.CF_DNS_VERSION }}
           tags: |
-            ${{ env.IMAGE }}:${{ env.CADDY_VERSION }}-cloudflare${{ env.CF_DNS_VERSION }}
+            ${{ env.IMAGE }}:${{ env.CADDY_VERSION }}-cloudflare${{ env.CF_DNS_VERSION }}-${{ env.IMAGE_REV }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Print the digest to pin
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          echo "Pin in compose.yaml: ${IMAGE}:${CADDY_VERSION}-cloudflare${CF_DNS_VERSION}@${DIGEST}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Pin in compose.yaml: ${IMAGE}:${CADDY_VERSION}-cloudflare${CF_DNS_VERSION}-${IMAGE_REV}@${DIGEST}" >> "$GITHUB_STEP_SUMMARY"
