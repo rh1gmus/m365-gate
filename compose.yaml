@@ -19,15 +19,14 @@ services:
   gate-caddy:
     labels:
       env: test
-    # Pinned by digest: the tag is for humans, the digest is what gets pulled. To bump, see README "Updating pins".
-    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4@sha256:69e5d24b15c57820b1dac1cc3d34c3fd4bcf8f708a7cfbac8419cd8f18707702}
+    # TODO(pin): add @sha256:<digest> from the caddy-image run summary once CI has built the -r2 tag, then audit it
+    # (README "Updating pins"). Until then this image is NOT pinned. Do not merge this branch before that.
+    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4-r2}
     build: ./caddy            # fallback when the image can't be pulled (about 12 min on 1 vCPU)
     restart: unless-stopped
-    # Non-root. The image's caddy binary carries a file capability that can't be gained here (no capabilities,
-    # no-new-privileges), so run the capability-free copy that gate-caddy-perms makes. Same bytes.
-    # Port <1024 works through the sysctl below.
+    # Non-root, no capabilities. The image's binary has no file capability (see caddy/Dockerfile), and port <1024
+    # works through the sysctl below.
     user: "65532:65532"
-    command: ["/opt/gate-bin/caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
     read_only: true
     tmpfs: ["/tmp"]
     sysctls:
@@ -43,7 +42,6 @@ services:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - gate_caddy_data:/data         # certificates; keep this so restarts don't re-issue
       - gate_caddy_config:/config
-      - gate_caddy_bin:/opt/gate-bin:ro
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     networks: [gate_edge]
@@ -53,23 +51,21 @@ services:
       gate-caddy-perms:
         condition: service_completed_successfully
 
-  # One-shot, as root with only CHOWN: (1) hands the certificate and config volumes to the non-root
-  # Caddy user (older installs have them owned by root; a no-op once correct), and (2) copies the
-  # caddy binary, without its file capability, to a volume that gate-caddy mounts read-only. No network.
+  # One-shot, as root with only CHOWN: hands the certificate and config volumes to the non-root Caddy user.
+  # Older installs have them owned by root; this is a no-op once they are correct. No network.
   gate-caddy-perms:
     labels:
       env: test
-    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4@sha256:69e5d24b15c57820b1dac1cc3d34c3fd4bcf8f708a7cfbac8419cd8f18707702}
+    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4-r2}
     restart: "no"
     user: "0:0"
     command:
       - sh
       - -c
-      - 'for d in /data /config; do [ "$$(stat -c %u $$d)" = 65532 ] || chown -R 65532:65532 $$d; done; cp /usr/bin/caddy /out/caddy.new && chmod 755 /out/caddy.new && mv -f /out/caddy.new /out/caddy'
+      - 'for d in /data /config; do [ "$$(stat -c %u $$d)" = 65532 ] || chown -R 65532:65532 $$d; done'
     volumes:
       - gate_caddy_data:/data
       - gate_caddy_config:/config
-      - gate_caddy_bin:/out
     network_mode: none
     read_only: true
     cap_drop: [ALL]
@@ -126,5 +122,4 @@ networks:
 volumes:
   gate_caddy_data: {}
   gate_caddy_config: {}
-  gate_caddy_bin: {}
   gate_config: {}

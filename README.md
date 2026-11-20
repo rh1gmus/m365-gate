@@ -101,7 +101,7 @@ Every image is pinned by digest (`tag@sha256:…`), so a moved or replaced tag c
 2. Check what you are about to trust. For a Caddy build, `caddy build-info` lists each Go module's hash, which can be compared with `https://sum.golang.org/lookup/<module>@<version>`.
 3. Update the digest in `compose.yaml` (and `caddy/Dockerfile` for its base images). The workflow's actions are pinned to commit SHAs; the comment beside each names its release.
 
-`gate-caddy` runs as a non-root user with no capabilities, so the first start after upgrading runs the one-shot `gate-caddy-perms`. It re-owns the certificate volumes and copies the `caddy` binary, without its file capability, to a small volume. The binary's bytes are unchanged.
+`gate-caddy` runs as a non-root user with no capabilities, so the first start after upgrading runs the one-shot `gate-caddy-perms`, which re-owns the certificate volumes. The image's Dockerfile strips the binary's file capability, which non-root Caddy could not start with.
 
 ## Security notes
 
