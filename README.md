@@ -85,7 +85,7 @@ Give each project its own `GATE_PORT`, or its own `GATE_HOST` on a different por
 
 ## The Caddy image
 
-Caddy needs a custom build to include the Cloudflare DNS module. Compiling it takes about 12 minutes on a 1 vCPU VM, so `.github/workflows/caddy-image.yml` builds it on GitHub and publishes `ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4`. Compose pulls that image and falls back to building `./caddy` locally if the pull fails.
+Caddy needs a custom build to include the Cloudflare DNS module. Compiling it takes about 12 minutes on a 1 vCPU VM, so `.github/workflows/caddy-image.yml` builds it on GitHub and publishes `ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4-r<N>` (`r<N>` is the workflow's `IMAGE_REV`; it goes up when the Dockerfile changes without a version bump, so old digests stay valid). Compose pulls that image and falls back to building `./caddy` locally if the pull fails.
 
 The package inherits this repo's **private** visibility. To pull it without a login, set the package to public under GitHub → Packages → m365-gate-caddy → Package settings. It contains only the Caddy binary. Or run `docker login ghcr.io` with a token that has `read:packages`.
 
@@ -93,11 +93,23 @@ The package inherits this repo's **private** visibility. To pull it without a lo
 
 To bump versions, change `CADDY_VERSION` / `CF_DNS_VERSION` in `caddy/Dockerfile` and the workflow, and the default tag in `compose.yaml`.
 
+### Updating pins
+
+Every image is pinned by digest (`tag@sha256:…`), so a moved or replaced tag can't change what runs. When you bump one:
+
+1. Get the new digest: for the Caddy image, the `caddy-image` run summary prints it. For others, `docker buildx imagetools inspect <image:tag>` or the registry's `Docker-Content-Digest` header.
+2. Check what you are about to trust. For a Caddy build, `caddy build-info` lists each Go module's hash, which can be compared with `https://sum.golang.org/lookup/<module>@<version>`.
+3. Update the digest in `compose.yaml` (and `caddy/Dockerfile` for its base images). The workflow's actions are pinned to commit SHAs; the comment beside each names its release.
+
+`gate-caddy` runs as a non-root user with no capabilities, so the first start after upgrading runs the one-shot `gate-caddy-perms`. It re-owns the certificate volumes and copies the `caddy` binary, without its file capability, to a small volume. The binary's bytes are unchanged.
+
 ## Security notes
 
 - Single-tenant app registration plus an explicit allow-list. Identity comes from the `preferred_username` (UPN) claim, which the tenant controls, not the user-editable `email` claim.
 - Session cookies are encrypted, `Secure`, `HttpOnly` and `SameSite=Lax`. HSTS, `X-Frame-Options: DENY` and `nosniff` are set.
-- Hardening: `gate-proxy` and `gate-config` run read-only with all capabilities dropped. `gate-caddy` keeps only `NET_BIND_SERVICE`. All three set `no-new-privileges`.
+- Hardening: every service runs read-only (Caddy keeps a `/tmp` tmpfs and its data volumes), with all capabilities dropped and `no-new-privileges`. `gate-caddy` runs as a non-root user (65532) and binds low ports through a container-scoped sysctl.
+- Requests for any other Host name on the gate port get `421` and no body, not an empty `200`.
+- Images and workflow actions are pinned by digest or commit SHA. See "Updating pins".
 - Secrets live only in the consuming project's git-ignored `.env`. Don't share `docker compose config` output, because it prints them.
 - Only `/ping` (oauth2-proxy liveness) is reachable without signing in.
 

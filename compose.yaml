@@ -17,9 +17,21 @@
 
 services:
   gate-caddy:
-    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4}
+    labels:
+      env: test
+    # Pinned by digest: the tag is for humans, the digest is what gets pulled. To bump, see README "Updating pins".
+    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4@sha256:69e5d24b15c57820b1dac1cc3d34c3fd4bcf8f708a7cfbac8419cd8f18707702}
     build: ./caddy            # fallback when the image can't be pulled (about 12 min on 1 vCPU)
     restart: unless-stopped
+    # Non-root. The image's caddy binary carries a file capability that can't be gained here (no capabilities,
+    # no-new-privileges), so run the capability-free copy that gate-caddy-perms makes. Same bytes.
+    # Port <1024 works through the sysctl below.
+    user: "65532:65532"
+    command: ["/opt/gate-bin/caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
     ports:
       - "${GATE_BIND:-0.0.0.0}:${GATE_PORT:-443}:${GATE_PORT:-443}"
     environment:
@@ -31,14 +43,43 @@ services:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - gate_caddy_data:/data         # certificates; keep this so restarts don't re-issue
       - gate_caddy_config:/config
+      - gate_caddy_bin:/opt/gate-bin:ro
     cap_drop: [ALL]
-    cap_add: [NET_BIND_SERVICE]
     security_opt: ["no-new-privileges:true"]
     networks: [gate_edge]
-    depends_on: [gate-proxy]
+    depends_on:
+      gate-proxy:
+        condition: service_started
+      gate-caddy-perms:
+        condition: service_completed_successfully
+
+  # One-shot, as root with only CHOWN: (1) hands the certificate and config volumes to the non-root
+  # Caddy user (older installs have them owned by root; a no-op once correct), and (2) copies the
+  # caddy binary, without its file capability, to a volume that gate-caddy mounts read-only. No network.
+  gate-caddy-perms:
+    labels:
+      env: test
+    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4@sha256:69e5d24b15c57820b1dac1cc3d34c3fd4bcf8f708a7cfbac8419cd8f18707702}
+    restart: "no"
+    user: "0:0"
+    command:
+      - sh
+      - -c
+      - 'for d in /data /config; do [ "$$(stat -c %u $$d)" = 65532 ] || chown -R 65532:65532 $$d; done; cp /usr/bin/caddy /out/caddy.new && chmod 755 /out/caddy.new && mv -f /out/caddy.new /out/caddy'
+    volumes:
+      - gate_caddy_data:/data
+      - gate_caddy_config:/config
+      - gate_caddy_bin:/out
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    security_opt: ["no-new-privileges:true"]
 
   gate-config:
-    image: python:3.12-slim
+    labels:
+      env: test
+    image: python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
     restart: "no"
     command: ["python", "-I", "/render_config.py"]
     environment:
@@ -58,7 +99,9 @@ services:
     security_opt: ["no-new-privileges:true"]
 
   gate-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.12.0
+    labels:
+      env: test
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.12.0@sha256:786bed0f000c0f8a7b31619244ebab02406a8856a4faf3f5fb1df61fbd6c30ed
     restart: unless-stopped
     command: ["--config=/config/oauth2-proxy.cfg"]
     environment:
@@ -83,4 +126,5 @@ networks:
 volumes:
   gate_caddy_data: {}
   gate_caddy_config: {}
+  gate_caddy_bin: {}
   gate_config: {}

@@ -28,3 +28,10 @@
 
 	reverse_proxy gate-proxy:4180
 }
+
+# Anything addressed to another Host name (right port, wrong name) gets 421 instead of
+# Caddy's default empty 200. Only the site above has a certificate.
+:{$GATE_PORT} {
+	header -Server
+	respond 421
+}
