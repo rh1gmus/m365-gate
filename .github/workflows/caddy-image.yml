@@ -20,10 +20,10 @@ permissions:
   packages: write
 
 env:
-  CADDY_VERSION: "2.10.2"
+  CADDY_VERSION: "2.11.9"
   CF_DNS_VERSION: "0.2.4"
   # Bump when the Dockerfile changes without a version bump, so a new tag is published and old digests stay valid.
-  IMAGE_REV: "r2"
+  IMAGE_REV: "r1"
   IMAGE: ghcr.io/${{ github.repository_owner }}/m365-gate-caddy
 
 jobs:
