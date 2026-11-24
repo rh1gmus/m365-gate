@@ -20,8 +20,9 @@ services:
     labels:
       env: test
     # Pinned by digest: the tag is for humans, the digest is what gets pulled. To bump, see README "Updating pins".
-    # -r2 audited 2026-11-20: /usr/bin/caddy sha256 5d9612c6..., no file capability, module hashes match sum.golang.org.
-    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4-r2@sha256:b24041c994cff9cacc6c33b55319f2668473823ae0ac2a96e0d6ab665b315527}
+    # 2.11.9-r1 audited 2026-11-24 (CI run 45345124538): /usr/bin/caddy sha256 d46ee78e..., Go 1.27.4, no file capability, all 149 module hashes match sum.golang.org, Trivy 0 CRITICAL (1 HIGH: x/net/html DoS, not reachable).
+    # (-r2 of 2.10.2 audited 2026-11-20: /usr/bin/caddy sha256 5d9612c6...)
+    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.11.9-cloudflare0.2.4-r1@sha256:a179d3951f1b0934b417de4c13a56d91e19aa33ce21cafb133353a20a318e08b}
     build: ./caddy            # fallback when the image can't be pulled (about 12 min on 1 vCPU)
     restart: unless-stopped
     # Non-root, no capabilities. The image's binary has no file capability (see caddy/Dockerfile), and port <1024
@@ -56,7 +57,7 @@ services:
   gate-caddy-perms:
     labels:
       env: test
-    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4-r2@sha256:b24041c994cff9cacc6c33b55319f2668473823ae0ac2a96e0d6ab665b315527}
+    image: ${GATE_CADDY_IMAGE:-ghcr.io/rh1gmus/m365-gate-caddy:2.11.9-cloudflare0.2.4-r1@sha256:a179d3951f1b0934b417de4c13a56d91e19aa33ce21cafb133353a20a318e08b}
     restart: "no"
     user: "0:0"
     command:
