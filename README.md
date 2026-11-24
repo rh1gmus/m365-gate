@@ -19,7 +19,7 @@ browser ──HTTPS :GATE_PORT──▶ gate-caddy ──▶ gate-proxy ──�
 |---|---|
 | `gate-caddy` | Caddy + Cloudflare DNS module: TLS, security headers, `/logout` |
 | `gate-config` | One-shot job that validates settings and renders the oauth2-proxy config |
-| `gate-proxy` | [oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/) v7.12.0 with the `entra-id` provider |
+| `gate-proxy` | [oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/) v7.15.6 with the `entra-id` provider |
 
 ## Add it to a project
 
