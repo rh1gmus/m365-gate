@@ -21,6 +21,11 @@
 
 	encode gzip
 
+	# Optional: paths answered with 404 before sign-in or the app is reached. Space-separated list in GATE_BLOCK_PATHS
+	# (unset by default; the placeholder default never matches a real request).
+	@blocked path {$GATE_BLOCK_PATHS:/.m365-gate-none}
+	respond @blocked 404
+
 	# Sign out: clear the oauth2-proxy session, then end the Microsoft session
 	# (otherwise SSO signs the user straight back in), then return to the app,
 	# which sends the user to the Microsoft sign-in page.
