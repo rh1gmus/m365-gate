@@ -5,6 +5,7 @@ goes to a shared volume, so the distroless oauth2-proxy image needs no shell.
 Secrets (client secret, cookie secret) never pass through here. gate-proxy reads
 them from its own environment.
 """
+import ipaddress
 import os
 import re
 import sys
@@ -25,8 +26,15 @@ tenant = env("ENTRA_TENANT_ID", "")
 emails = [e.strip().lower() for e in env("ALLOWED_EMAILS", "").split(",") if e.strip()]
 groups = [g.strip() for g in env("ALLOWED_GROUPS", "").split(",") if g.strip()]
 expire = env("GATE_SESSION_HOURS", "12")
+# Optional: proxy IPs/CIDRs allowed to set X-Forwarded-* (trusted_proxy_ips; NOT trusted_ips, which bypasses sign-in). Unset = any peer.
+trusted = [c.strip() for c in env("GATE_TRUSTED_PROXY_IPS", "").split(",") if c.strip()]
 
 errors = []
+for c in trusted:
+    try:
+        ipaddress.ip_network(c, strict=False)
+    except ValueError:
+        errors.append(f"GATE_TRUSTED_PROXY_IPS entry is not an IP or CIDR: {c!r}")
 if not re.fullmatch(r"[A-Za-z0-9.-]+\.[A-Za-z]{2,}", host):
     errors.append("GATE_HOST must be a DNS name, e.g. app.example.com")
 if not (port.isdigit() and 0 < int(port) < 65536):
@@ -77,6 +85,9 @@ lines = [
     'pass_user_headers = true',
     'request_logging = true',
 ]
+
+if trusted:
+    lines.append("trusted_proxy_ips = [" + ", ".join(q(c) for c in trusted) + "]")
 
 if emails == ["*"] or (not emails and groups):
     lines.append('email_domains = ["*"]')
