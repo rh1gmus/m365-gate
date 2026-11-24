@@ -118,3 +118,8 @@ This project was split out of `rh1gmus/dockerdashboard` (local: /claude/project-
 - Changed: caddy/Dockerfile (CADDY_VERSION, builder and runtime base digests, looked up from Docker Hub; the 2.10.2 digests matched the old pins, so the lookup method is right), workflow CADDY_VERSION and IMAGE_REV r1. compose.yaml still pins the old image on purpose.
 - Not built locally: the host has about 700 MB free and swap in use, and a live trading bot runs on it. CI builds on merge (Dockerfile path filter).
 - Phase 2 after the run: take the digest from the run summary, `caddy build-info` module hashes vs sum.golang.org, Trivy the pulled image (expect 0 CRITICAL), update both image defaults in compose.yaml, then bump the submodule in each consumer and recreate gate-caddy (one at a time, `--no-build --no-deps`).
+
+## 2026-11-24: Caddy 2.11.9 image audited and pinned (branch caddy-2.11.9-pin, phase 2)
+- CI run 45345124538 built `2.11.9-cloudflare0.2.4-r1`, digest sha256:a179d395...e08b (manifest list). Pulled by digest.
+- Checks: `caddy version` v2.11.9; built with Go 1.27.4; /usr/bin/caddy sha256 d46ee78e53e3362c084968808c6868c6631ead385d626c0be61afeb88624c8e4; no file capability; cloudflare DNS module present (v0.2.4); all 149 modules in `caddy build-info` match sum.golang.org (script, parsed lookups). Trivy fixable HIGH/CRITICAL: 0 CRITICAL, 1 HIGH (CVE-2026-78661 x/net/html DoS via crafted HTML; Caddy does not parse client HTML in this config). Was 5 CRITICAL / 100 HIGH.
+- compose.yaml: both image defaults now pinned to the new digest. Consumers must bump their submodule pointer and recreate gate-caddy.
