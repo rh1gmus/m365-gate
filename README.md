@@ -1,5 +1,7 @@
 # m365-gate
 
+**Label:** Public · **Status:** live (front door of rhigmus.com via project-portal)
+
 A drop-in **Microsoft 365 (Entra ID) sign-in + HTTPS** front door for any HTTP app run with Docker Compose. Add about 5 lines to a project's compose file and fill in a `.env`. The app gets:
 
 - **HTTPS** with an automatic Let's Encrypt certificate via the Cloudflare DNS-01 challenge. It works on any port and doesn't need 80/443.
@@ -87,7 +89,7 @@ Give each project its own `GATE_PORT`, or its own `GATE_HOST` on a different por
 
 Caddy needs a custom build to include the Cloudflare DNS module. Compiling it takes about 12 minutes on a 1 vCPU VM, so `.github/workflows/caddy-image.yml` builds it on GitHub and publishes `ghcr.io/rh1gmus/m365-gate-caddy:2.10.2-cloudflare0.2.4-r<N>` (`r<N>` is the workflow's `IMAGE_REV`; it goes up when the Dockerfile changes without a version bump, so old digests stay valid). Compose pulls that image and falls back to building `./caddy` locally if the pull fails.
 
-The package inherits this repo's **private** visibility. To pull it without a login, set the package to public under GitHub → Packages → m365-gate-caddy → Package settings. It contains only the Caddy binary. Or run `docker login ghcr.io` with a token that has `read:packages`.
+**Building it yourself always works:** if the pull fails, Compose compiles `./caddy` locally (about 12 minutes on 1 vCPU), so no registry access is needed. The GHCR package currently inherits this repo's visibility and is not pullable by outsiders until the owner sets it to public (GitHub → Packages → m365-gate-caddy → Package settings; it contains only the Caddy binary). Or run `docker login ghcr.io` with a token that has `read:packages`.
 
 **Don't use a bare `docker compose up --build`** in a consuming project. It rebuilds every service that has a `build:` section, so it recompiles Caddy even when the image is already present. Build only your app (`docker compose build app`), then run `docker compose up -d`.
 
@@ -113,9 +115,17 @@ Every image is pinned by digest (`tag@sha256:…`), so a moved or replaced tag c
 - Secrets live only in the consuming project's git-ignored `.env`. Don't share `docker compose config` output, because it prints them.
 - Only `/ping` (oauth2-proxy liveness) is reachable without signing in.
 
+## Single gate, many apps
+
+To put several tools behind one gate, give each its own internal network and route by path (`/<tool>/`) in a router behind the gate, with a rule that refuses tool-to-tool calls. The rhigmus.com portal does this (one gate, path routing, a network per tool); it lives in a separate project, `project-portal`, and is not part of this module.
+
 ## Example
 
-[`examples/whoami`](examples/whoami) puts a tiny echo server behind the gate, so you can see the identity headers it passes. The reference consumer is [rh1gmus/dockerdashboard](https://github.com/rh1gmus/dockerdashboard).
+[`examples/whoami`](examples/whoami) puts a tiny echo server behind the gate, so you can see the identity headers it passes. For a real consumer that routes several apps behind one gate, see `project-portal` (the rhigmus.com portal; not published).
+
+## Changelog
+
+- **v0.1.0**: first tagged release. Entra sign-in + HTTPS gate, digest-pinned images, `examples/whoami`. Changes since the tag are in `git log v0.1.0..main`.
 
 ## Layout
 
